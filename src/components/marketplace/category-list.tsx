@@ -64,29 +64,3 @@ export function Sidebar({ active }: { active?: string }) {
     </Card>
   );
 }
-
-/** Horizontal category chips for small screens. */
-export function CategoryChips({ active }: { active?: string }) {
-  return (
-    <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-      {[undefined, ...categories].map((category) => {
-        const slug = category ? slugify(category) : undefined;
-        const isActive = slug === active;
-        return (
-          <li key={category ?? "all"} className="shrink-0">
-            <Link
-              href={slug ? `/?category=${slug}` : "/"}
-              aria-current={isActive ? "page" : undefined}
-              className={cn(
-                "inline-flex h-8 items-center rounded-full border bg-card px-3 text-sm",
-                isActive && "border-brand bg-brand text-brand-foreground"
-              )}
-            >
-              {category ?? "All"}
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}

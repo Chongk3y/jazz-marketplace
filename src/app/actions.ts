@@ -30,8 +30,9 @@ export type CreateListingState = {
   values?: Partial<Record<Exclude<ListingField, "photo">, string>>;
 };
 
+// Browsers submit textarea line breaks as \r\n; store plain \n.
 const text = (formData: FormData, key: string) =>
-  String(formData.get(key) ?? "").trim();
+  String(formData.get(key) ?? "").replace(/\r\n?/g, "\n").trim();
 
 export async function createListingAction(
   _prev: CreateListingState,

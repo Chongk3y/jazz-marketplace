@@ -239,11 +239,13 @@ export const sampleListings: Listing[] = [
 
 export function formatPrice(price: number) {
   if (price === 0) return "Free";
+  // Whole dollars: "$120". With cents: always two digits, "$45.50".
+  const digits = Number.isInteger(price) ? 0 : 2;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: Number.isInteger(price) ? 0 : 2,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   }).format(price);
 }
 

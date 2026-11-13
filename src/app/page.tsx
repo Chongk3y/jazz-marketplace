@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { CategoryChips, Sidebar } from "@/components/marketplace/category-list";
+import { CategoryChips } from "@/components/marketplace/category-chips";
+import { Sidebar } from "@/components/marketplace/category-list";
 import { ListingCard } from "@/components/marketplace/listing-card";
 import { SearchBar } from "@/components/marketplace/search-bar";
 import { buttonVariants } from "@/components/ui/button";
