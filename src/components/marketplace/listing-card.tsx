@@ -1,22 +1,39 @@
+import Image from "next/image";
+import Link from "next/link";
+
 import { Card, CardContent } from "@/components/ui/card";
-import { formatPrice, type Listing } from "@/lib/data";
+import { formatPrice, isLocalImage, listedAgo, type Listing } from "@/lib/data";
 
 export function ListingCard({ listing }: { listing: Listing }) {
   return (
-    <Card className="group cursor-pointer gap-3 bg-transparent py-0 shadow-none ring-0">
-      {/* Image placeholder — crosshatch like the mockup */}
-      <div
-        role="img"
-        aria-label={listing.title}
-        className="listing-placeholder aspect-[28/27] w-full rounded-2xl border-2 border-foreground transition-transform duration-200 group-hover:scale-[1.02]"
-      />
-      <CardContent className="space-y-0.5 px-1">
-        <p className="text-2xl font-semibold tracking-tight">
-          {formatPrice(listing.price)}
-        </p>
-        <p className="truncate text-base">{listing.title}</p>
-        <p className="text-base text-muted-foreground">{listing.location}</p>
-      </CardContent>
-    </Card>
+    <Link
+      href={`/item/${listing.id}`}
+      className="group rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <Card className="h-full gap-0 py-0 shadow-sm ring-foreground/5 transition-shadow group-hover:shadow-md">
+        <div className="relative aspect-square overflow-hidden bg-muted">
+          <Image
+            src={listing.image}
+            alt={listing.title}
+            fill
+            unoptimized={isLocalImage(listing.image)}
+            sizes="(min-width: 1280px) 20vw, (min-width: 768px) 30vw, 50vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </div>
+        <CardContent className="space-y-0.5 p-3 sm:space-y-1 sm:p-4">
+          <p className="text-base font-bold sm:text-lg">
+            {formatPrice(listing.price)}
+          </p>
+          <p className="truncate text-sm text-foreground/80 sm:text-[0.95rem]">
+            {listing.title}
+          </p>
+          <div className="pt-1 text-xs leading-5 text-muted-foreground">
+            <p className="truncate">{listedAgo(listing.createdAt)}</p>
+            <p className="truncate">{listing.location}</p>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
