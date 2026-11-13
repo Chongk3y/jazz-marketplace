@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { categories, EMAIL_RE, type Category } from "@/lib/data";
-import { sendEmail } from "@/lib/email";
 import {
   createListing,
   createMessage,
@@ -97,8 +96,6 @@ export async function createListingAction(
 
 export type MessageState = {
   ok?: boolean;
-  /** Message was saved, but the email service rejected the notification. */
-  emailFailed?: boolean;
   error?: string;
   values?: { email: string; body: string };
 };
@@ -119,16 +116,9 @@ export async function sendMessageAction(
   const listing = await getListing(listingId);
   if (!listing) return { error: "This listing no longer exists.", values };
 
-  const message = await createMessage({ listingId, buyerEmail: email, body });
-  const sent = await sendEmail({
-    to: listing.sellerEmail,
-    replyTo: email,
-    subject: `New message about "${listing.title}"`,
-    text: `${body}\n\nReply to this buyer at ${email}.`,
-    messageId: message.id,
-    listingId,
-  });
+  // Saved to the messages table only; no email is sent to the seller.
+  await createMessage({ listingId, buyerEmail: email, body });
 
   revalidatePath("/messages");
-  return { ok: true, emailFailed: sent.delivery === "failed" };
+  return { ok: true };
 }

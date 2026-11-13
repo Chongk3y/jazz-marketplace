@@ -20,8 +20,7 @@ export const {
   getListing,
   createListing,
   createMessage,
-  addToOutbox,
-  getOutbox,
+  getMessages,
   savePhoto,
 } = store;
 

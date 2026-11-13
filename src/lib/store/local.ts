@@ -14,7 +14,6 @@ import {
   slugify,
   type Listing,
   type Message,
-  type OutboxEmail,
 } from "@/lib/data";
 
 import { photoExtension } from "./photos";
@@ -27,15 +26,17 @@ export const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 type Db = {
   listings: Listing[];
   messages: Message[];
-  outbox: OutboxEmail[];
 };
 
 async function readDb(): Promise<Db> {
   try {
-    return JSON.parse(await fs.readFile(DB_FILE, "utf8")) as Db;
+    const db = JSON.parse(await fs.readFile(DB_FILE, "utf8"));
+    // Older files may still have an "outbox" array; it's ignored and dropped
+    // on the next write.
+    return { listings: db.listings ?? [], messages: db.messages ?? [] };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    const seeded: Db = { listings: sampleListings, messages: [], outbox: [] };
+    const seeded: Db = { listings: sampleListings, messages: [] };
     await writeDb(seeded);
     return seeded;
   }
@@ -100,17 +101,17 @@ export const localStore: Store = {
     });
   },
 
-  addToOutbox(email) {
-    return mutate((db) => {
-      const entry: OutboxEmail = { ...email, ...stamp() };
-      db.outbox.push(entry);
-      return entry;
-    });
-  },
-
-  async getOutbox() {
-    const { outbox } = await readDb();
-    return [...outbox].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  async getMessages() {
+    const { listings, messages } = await readDb();
+    const byId = new Map(listings.map((listing) => [listing.id, listing]));
+    return messages
+      .flatMap((message) => {
+        const listing = byId.get(message.listingId);
+        return listing
+          ? [{ ...message, listingTitle: listing.title, sellerEmail: listing.sellerEmail }]
+          : [];
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
 
   async savePhoto(file) {

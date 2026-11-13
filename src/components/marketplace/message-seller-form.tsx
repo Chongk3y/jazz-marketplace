@@ -29,17 +29,12 @@ export function MessageSellerForm({ listingId }: { listingId: string }) {
       <div role="status" className="space-y-3 rounded-lg bg-brand/8 p-4">
         <p className="flex items-center gap-2 font-medium">
           <CheckCircle2 className="size-5 text-brand" />
-          Message sent
+          Message saved
         </p>
         <p className="text-sm text-muted-foreground">
-          {state.emailFailed
-            ? "Your message was saved, but we couldn't email the seller right now. You can also contact them directly at the address above."
-            : "We let the seller know. They'll reply to "}
-          {!state.emailFailed && (
-            <>
-              <span className="font-medium text-foreground">{email}</span>.
-            </>
-          )}
+          The seller can reply to you at{" "}
+          <span className="font-medium break-all text-foreground">{email}</span>. To
+          reach them right away, email them at the address above.
         </p>
         <Button
           variant="outline"

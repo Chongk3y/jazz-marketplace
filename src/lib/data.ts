@@ -43,17 +43,10 @@ export type Message = {
   createdAt: string;
 };
 
-export type OutboxEmail = {
-  id: string;
-  messageId: string;
-  listingId: string;
-  to: string;
-  replyTo: string;
-  subject: string;
-  text: string;
-  /** local: saved only (no email service) · sent: delivered to the provider · failed */
-  delivery: "local" | "sent" | "failed";
-  createdAt: string;
+/** A buyer message together with the listing it's about. */
+export type MessageWithListing = Message & {
+  listingTitle: string;
+  sellerEmail: string;
 };
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

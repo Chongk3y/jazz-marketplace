@@ -5,7 +5,7 @@
 -- Access model: the Next.js server talks to Supabase with the project's
 -- SECRET key (server-only), which bypasses Row Level Security. RLS is still
 -- turned on for every table so the public (anon/publishable) key can only
--- read listings — never buyer messages or the email log.
+-- read listings — never buyer messages.
 
 -- ------------------------------------------------------------------ listings
 
@@ -53,24 +53,9 @@ create index if not exists messages_listing_id_idx on public.messages (listing_i
 -- RLS on with no policies: only the server (secret key) can read or write.
 alter table public.messages enable row level security;
 
--- -------------------------------------------------------------- email outbox
--- One row per email the app sends (or, without an email service, would send).
-
-create table if not exists public.email_outbox (
-  id          uuid primary key default gen_random_uuid(),
-  message_id  uuid not null references public.messages (id) on delete cascade,
-  listing_id  uuid not null references public.listings (id) on delete cascade,
-  "to"        text not null,
-  reply_to    text not null,
-  subject     text not null,
-  text        text not null,
-  delivery    text not null check (delivery in ('local', 'sent', 'failed')),
-  created_at  timestamptz not null default now()
-);
-
-create index if not exists email_outbox_created_at_idx on public.email_outbox (created_at desc);
-
-alter table public.email_outbox enable row level security;
+-- Earlier versions also had an email_outbox table for seller emails.
+-- The app no longer sends email, so remove it if it exists.
+drop table if exists public.email_outbox;
 
 -- ------------------------------------------------------------------- search
 -- Case-insensitive search across title, description, location and category.
@@ -103,10 +88,10 @@ $$;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant select, insert, update, delete
-  on public.listings, public.messages, public.email_outbox
+  on public.listings, public.messages
   to service_role;
 grant select on public.listings to anon, authenticated;
-revoke all on public.messages, public.email_outbox from anon, authenticated;
+revoke all on public.messages from anon, authenticated;
 grant execute on function public.search_listings(text, text)
   to anon, authenticated, service_role;
 

@@ -13,7 +13,6 @@ import {
   type Category,
   type Listing,
   type Message,
-  type OutboxEmail,
 } from "@/lib/data";
 
 import { supabaseEnv } from "./config";
@@ -78,29 +77,10 @@ const toMessage = (row: MessageRow): Message => ({
   createdAt: row.created_at,
 });
 
-type OutboxRow = {
-  id: string;
-  message_id: string;
-  listing_id: string;
-  to: string;
-  reply_to: string;
-  subject: string;
-  text: string;
-  delivery: OutboxEmail["delivery"];
-  created_at: string;
+// A message row with its listing embedded via the listing_id foreign key.
+type MessageWithListingRow = MessageRow & {
+  listings: { title: string; seller_email: string } | null;
 };
-
-const toOutbox = (row: OutboxRow): OutboxEmail => ({
-  id: row.id,
-  messageId: row.message_id,
-  listingId: row.listing_id,
-  to: row.to,
-  replyTo: row.reply_to,
-  subject: row.subject,
-  text: row.text,
-  delivery: row.delivery,
-  createdAt: row.created_at,
-});
 
 /* ------------------------------- Store -------------------------------- */
 
@@ -159,32 +139,24 @@ export const supabaseStore: Store = {
     return toMessage(data);
   },
 
-  async addToOutbox(email) {
+  async getMessages() {
     const { data, error } = await db()
-      .from("email_outbox")
-      .insert({
-        message_id: email.messageId,
-        listing_id: email.listingId,
-        to: email.to,
-        reply_to: email.replyTo,
-        subject: email.subject,
-        text: email.text,
-        delivery: email.delivery,
-      })
-      .select("*")
-      .single<OutboxRow>();
-    if (error) fail("log email", error);
-    return toOutbox(data);
-  },
-
-  async getOutbox() {
-    const { data, error } = await db()
-      .from("email_outbox")
-      .select("*")
+      .from("messages")
+      .select("*, listings(title, seller_email)")
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) fail("load messages", error);
-    return (data as OutboxRow[]).map(toOutbox);
+    return (data as MessageWithListingRow[]).flatMap((row) =>
+      row.listings
+        ? [
+            {
+              ...toMessage(row),
+              listingTitle: row.listings.title,
+              sellerEmail: row.listings.seller_email,
+            },
+          ]
+        : []
+    );
   },
 
   async savePhoto(file) {
