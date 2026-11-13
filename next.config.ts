@@ -13,8 +13,8 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    // Room for a 5 MB photo plus the other form fields.
-    serverActions: { bodySizeLimit: "6mb" },
+    // A 4 MB photo plus the other fields; matches Vercel's 4.5 MB request cap.
+    serverActions: { bodySizeLimit: "4.5mb" },
   },
 };
 

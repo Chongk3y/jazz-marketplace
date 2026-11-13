@@ -7,7 +7,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "db:seed": "node --env-file=.env.local scripts/seed-supabase.mjs"
+    "db:seed": "node --env-file=.env.local --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/seed-supabase.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

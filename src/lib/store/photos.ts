@@ -1,4 +1,6 @@
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+// 4 MB: Vercel rejects request bodies over 4.5 MB, and the form adds a little.
+// Keep in sync with UPLOAD_MAX_BYTES in src/lib/image.ts.
+export const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
 export const PHOTO_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",

@@ -20,9 +20,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { categories } from "@/lib/data";
+import { preparePhoto, UPLOAD_MAX_BYTES } from "@/lib/image";
 import { cn } from "@/lib/utils";
-
-const MAX_BYTES = 5 * 1024 * 1024;
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
@@ -40,7 +39,11 @@ export function CreateListingForm() {
   );
   const [preview, setPreview] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string>();
+  // The (possibly resized) photo that will actually be uploaded.
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const pickId = useRef(0);
 
   useEffect(() => () => {
     if (preview) URL.revokeObjectURL(preview);
@@ -52,21 +55,41 @@ export function CreateListingForm() {
   const describe = (field: ListingField) =>
     err(field) ? { "aria-invalid": true, "aria-describedby": `${field}-error` } : {};
 
-  function onPhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function onPhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    const id = ++pickId.current; // ignore results from an earlier pick
     setPhotoError(undefined);
+    setPhoto(null);
     if (!file) return setPreview(null);
-    if (!file.type.startsWith("image/")) {
-      setPhotoError("Choose an image file.");
-    } else if (file.size > MAX_BYTES) {
-      setPhotoError("Photo must be 5 MB or smaller.");
-    }
     setPreview(URL.createObjectURL(file));
+    if (!file.type.startsWith("image/")) return setPhotoError("Choose an image file.");
+
+    setPreparing(true);
+    try {
+      const ready = await preparePhoto(file);
+      if (id !== pickId.current) return;
+      if (ready.size > UPLOAD_MAX_BYTES) {
+        setPhotoError(
+          file.type === "image/gif"
+            ? "GIFs must be 4 MB or smaller."
+            : "This photo is too large to upload. Try a smaller one."
+        );
+      } else {
+        setPhoto(ready);
+      }
+    } catch {
+      if (id === pickId.current) setPhotoError("Couldn't read this image. Try a JPG or PNG.");
+    } finally {
+      if (id === pickId.current) setPreparing(false);
+    }
   }
 
   function clearPhoto() {
+    pickId.current++;
     if (fileRef.current) fileRef.current.value = "";
     setPreview(null);
+    setPhoto(null);
+    setPreparing(false);
     setPhotoError(undefined);
   }
 
@@ -75,6 +98,9 @@ export function CreateListingForm() {
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    // Upload the resized photo, not the original from the file input.
+    if (photo) formData.set("photo", photo, photo.name);
+    else formData.delete("photo");
     startTransition(() => formAction(formData));
   }
 
@@ -101,7 +127,10 @@ export function CreateListingForm() {
             <div className="pointer-events-none flex size-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
               <ImagePlus className="size-10" />
               <p className="font-medium text-foreground">Add a photo</p>
-              <p className="text-sm">Tap to choose or take a picture · JPG, PNG, WebP · up to 5 MB</p>
+              <p className="text-sm">
+                Tap to choose or take a picture · JPG, PNG, WebP or GIF · large photos are
+                resized automatically
+              </p>
             </div>
           )}
           <input
@@ -127,6 +156,12 @@ export function CreateListingForm() {
             </Button>
           )}
         </div>
+        {preparing && (
+          <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Preparing photo…
+          </p>
+        )}
         <FieldError id="photo-error" message={err("photo")} />
       </Card>
 
@@ -246,7 +281,7 @@ export function CreateListingForm() {
 
         <Button
           type="submit"
-          disabled={pending || !!photoError}
+          disabled={pending || preparing || !!photoError}
           className="h-11 w-full bg-brand text-base text-brand-foreground hover:bg-brand/90"
         >
           {pending && <Loader2 className="animate-spin" />}

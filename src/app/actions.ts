@@ -54,7 +54,7 @@ export async function createListingAction(
   } else if (!PHOTO_TYPES[photo.type]) {
     errors.photo = "Use a JPG, PNG, WebP or GIF image.";
   } else if (photo.size > MAX_PHOTO_BYTES) {
-    errors.photo = "Photo must be 5 MB or smaller.";
+    errors.photo = "Photo must be 4 MB or smaller.";
   }
 
   if (values.title.length < 3) errors.title = "Title must be at least 3 characters.";
