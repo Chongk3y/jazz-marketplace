@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { categories, EMAIL_RE, type Category } from "@/lib/data";
+import { categories, EMAIL_RE, normalizeEmail, type Category } from "@/lib/data";
 import {
   createListing,
   createMessage,
@@ -82,7 +82,8 @@ export async function createListingAction(
     title: values.title,
     description: values.description,
     price: Math.round(price * 100) / 100,
-    sellerEmail: values.email,
+    // Lowercased so "Connect with Stripe" matches every listing by this seller.
+    sellerEmail: normalizeEmail(values.email),
     category: values.category as Category,
     location: values.location,
     image,

@@ -18,10 +18,17 @@ const store: Store = storeMode === "supabase" ? supabaseStore : localStore;
 export const {
   getListings,
   getListing,
+  getListingsBySeller,
   createListing,
   createMessage,
   getMessages,
   savePhoto,
+  getSeller,
+  getSellerByAccount,
+  saveSeller,
+  updateSellerStatus,
+  recordOrder,
+  getOrderBySession,
 } = store;
 
 export { MAX_PHOTO_BYTES, PHOTO_TYPES } from "./photos";

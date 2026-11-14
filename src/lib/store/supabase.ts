@@ -12,7 +12,10 @@ import {
   categoryFromSlug,
   type Category,
   type Listing,
+  type ListingStatus,
   type Message,
+  type Order,
+  type Seller,
 } from "@/lib/data";
 
 import { supabaseEnv } from "./config";
@@ -47,6 +50,7 @@ type ListingRow = {
   seller_email: string;
   image_url: string;
   created_at: string;
+  status?: ListingStatus; // missing until the payments SQL has been run
 };
 
 const toListing = (row: ListingRow): Listing => ({
@@ -58,6 +62,49 @@ const toListing = (row: ListingRow): Listing => ({
   location: row.location,
   sellerEmail: row.seller_email,
   image: row.image_url,
+  createdAt: row.created_at,
+  status: row.status ?? "available",
+});
+
+type SellerRow = {
+  email: string;
+  stripe_account_id: string | null;
+  charges_enabled: boolean;
+  details_submitted: boolean;
+};
+
+const toSeller = (row: SellerRow): Seller => ({
+  email: row.email,
+  stripeAccountId: row.stripe_account_id,
+  chargesEnabled: row.charges_enabled,
+  detailsSubmitted: row.details_submitted,
+});
+
+type OrderRow = {
+  id: string;
+  listing_id: string | null;
+  listing_title: string;
+  stripe_checkout_session_id: string;
+  stripe_payment_intent_id: string | null;
+  stripe_account_id: string;
+  amount_total: number;
+  application_fee_amount: number;
+  currency: string;
+  buyer_email: string | null;
+  created_at: string;
+};
+
+const toOrder = (row: OrderRow): Order => ({
+  id: row.id,
+  listingId: row.listing_id ?? "",
+  listingTitle: row.listing_title,
+  checkoutSessionId: row.stripe_checkout_session_id,
+  paymentIntentId: row.stripe_payment_intent_id,
+  stripeAccountId: row.stripe_account_id,
+  amountTotal: row.amount_total,
+  applicationFeeAmount: row.application_fee_amount,
+  currency: row.currency,
+  buyerEmail: row.buyer_email,
   createdAt: row.created_at,
 });
 
@@ -105,6 +152,20 @@ export const supabaseStore: Store = {
       .maybeSingle<ListingRow>();
     if (error) fail("load listing", error);
     return data ? toListing(data) : undefined;
+  },
+
+  async getListingsBySeller(email) {
+    // Case-insensitive exact match (older listings may have mixed-case
+    // emails). Escape LIKE wildcards so "_" in an email matches literally.
+    const pattern = email.replace(/[\\%_]/g, "\\$&");
+    const { data, error } = await db()
+      .from("listings")
+      .select("*")
+      .ilike("seller_email", pattern)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) fail("load seller listings", error);
+    return (data as ListingRow[]).map(toListing);
   },
 
   async createListing(input) {
@@ -169,5 +230,92 @@ export const supabaseStore: Store = {
     });
     if (error) fail("upload photo", error);
     return bucket.getPublicUrl(name).data.publicUrl;
+  },
+
+  /* ----------------------------- Payments ----------------------------- */
+
+  async getSeller(email) {
+    const { data, error } = await db()
+      .from("sellers")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle<SellerRow>();
+    if (error) fail("load seller", error);
+    return data ? toSeller(data) : undefined;
+  },
+
+  async getSellerByAccount(stripeAccountId) {
+    const { data, error } = await db()
+      .from("sellers")
+      .select("*")
+      .eq("stripe_account_id", stripeAccountId)
+      .maybeSingle<SellerRow>();
+    if (error) fail("load seller", error);
+    return data ? toSeller(data) : undefined;
+  },
+
+  async saveSeller(email, stripeAccountId) {
+    const { data, error } = await db()
+      .from("sellers")
+      .upsert(
+        {
+          email,
+          stripe_account_id: stripeAccountId,
+          charges_enabled: false,
+          details_submitted: false,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "email" }
+      )
+      .select("*")
+      .single<SellerRow>();
+    if (error) fail("save seller", error);
+    return toSeller(data);
+  },
+
+  async updateSellerStatus(stripeAccountId, status) {
+    const { error } = await db()
+      .from("sellers")
+      .update({
+        charges_enabled: status.chargesEnabled,
+        details_submitted: status.detailsSubmitted,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("stripe_account_id", stripeAccountId);
+    if (error) fail("update seller", error);
+  },
+
+  async recordOrder(order) {
+    const { data, error } = await db().rpc("record_order", {
+      p_listing_id: order.listingId,
+      p_checkout_session_id: order.checkoutSessionId,
+      p_payment_intent_id: order.paymentIntentId,
+      p_stripe_account_id: order.stripeAccountId,
+      p_amount_total: order.amountTotal,
+      p_application_fee_amount: order.applicationFeeAmount,
+      p_currency: order.currency,
+      p_buyer_email: order.buyerEmail,
+    });
+    if (error) fail("record order", error);
+    const row = (data as {
+      order_id: string | null;
+      already_recorded: boolean;
+      listing_marked_sold: boolean;
+    }[])[0];
+    return {
+      orderId: row?.order_id ?? null,
+      alreadyRecorded: row?.already_recorded ?? false,
+      listingMarkedSold: row?.listing_marked_sold ?? false,
+    };
+  },
+
+  async getOrderBySession(checkoutSessionId) {
+    const { data, error } = await db()
+      .from("orders")
+      .select("*")
+      .eq("stripe_checkout_session_id", checkoutSessionId)
+      .maybeSingle<OrderRow>();
+    if (error) fail("load order", error);
+    return data ? toOrder(data) : undefined;
   },
 };

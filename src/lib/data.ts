@@ -33,6 +33,42 @@ export type Listing = {
   sellerEmail: string;
   image: string;
   createdAt: string;
+  status: ListingStatus;
+};
+
+export type ListingStatus = "available" | "sold";
+
+/** A seller, identified by the email on their listings (there is no login). */
+export type Seller = {
+  email: string;
+  stripeAccountId: string | null;
+  /** Stripe says the account can accept payments. */
+  chargesEnabled: boolean;
+  detailsSubmitted: boolean;
+};
+
+/** Amounts are in the smallest currency unit (cents). */
+export type NewOrder = {
+  listingId: string;
+  checkoutSessionId: string;
+  paymentIntentId: string | null;
+  stripeAccountId: string;
+  amountTotal: number;
+  applicationFeeAmount: number;
+  currency: string;
+  buyerEmail: string | null;
+};
+
+export type Order = NewOrder & {
+  id: string;
+  listingTitle: string;
+  createdAt: string;
+};
+
+export type RecordOrderResult = {
+  orderId: string | null;
+  alreadyRecorded: boolean;
+  listingMarkedSold: boolean;
 };
 
 export type Message = {
@@ -51,13 +87,17 @@ export type MessageWithListing = Message & {
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Emails are stored lowercased so a seller matches all their listings. */
+export const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
 const HOUR = 60 * 60 * 1000;
 const ago = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
 const photo = (id: string) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=80`;
 
-// Seed data: copied into the local store on first run (see src/lib/store.ts).
-export const sampleListings: Listing[] = [
+// Seed data: copied into the local store on first run, or into Supabase by
+// `npm run db:seed`.
+const sampleListingData: Omit<Listing, "status">[] = [
   {
     id: "vintage-road-bike",
     title: "Vintage road bike",
@@ -229,6 +269,19 @@ export const sampleListings: Listing[] = [
     createdAt: ago(130),
   },
 ];
+
+export const sampleListings: Listing[] = sampleListingData.map((listing) => ({
+  ...listing,
+  status: "available",
+}));
+
+/** Formats an amount in cents, e.g. 4550 → "$45.50". */
+export function formatCents(cents: number, currency = "usd") {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(cents / 100);
+}
 
 export function formatPrice(price: number) {
   if (price === 0) return "Free";

@@ -1,4 +1,4 @@
-import { Mail, Tag } from "lucide-react";
+import { Mail, Tag, Wallet } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 const sellerLinks = [
   { label: "Create listing", href: "/create", icon: Tag },
+  { label: "Get paid with Stripe", href: "/seller", icon: Wallet },
   { label: "Messages", href: "/messages", icon: Mail },
 ];
 

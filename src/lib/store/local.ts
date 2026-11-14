@@ -31,9 +31,15 @@ type Db = {
 async function readDb(): Promise<Db> {
   try {
     const db = JSON.parse(await fs.readFile(DB_FILE, "utf8"));
-    // Older files may still have an "outbox" array; it's ignored and dropped
-    // on the next write.
-    return { listings: db.listings ?? [], messages: db.messages ?? [] };
+    // Older files may still have an "outbox" array (ignored, dropped on the
+    // next write) and listings without a status.
+    return {
+      listings: (db.listings ?? []).map((listing: Listing) => ({
+        ...listing,
+        status: listing.status ?? "available",
+      })),
+      messages: db.messages ?? [],
+    };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     const seeded: Db = { listings: sampleListings, messages: [] };
@@ -64,6 +70,10 @@ function mutate<T>(fn: (db: Db) => T): Promise<T> {
 
 const stamp = () => ({ id: randomUUID(), createdAt: new Date().toISOString() });
 
+function paymentsNeedSupabase(): never {
+  throw new Error("Payments need Supabase: set SUPABASE_URL and SUPABASE_SECRET_KEY.");
+}
+
 export const localStore: Store = {
   async getListings({ category, query } = {}) {
     const { listings } = await readDb();
@@ -85,9 +95,16 @@ export const localStore: Store = {
     return listings.find((listing) => listing.id === id);
   },
 
+  async getListingsBySeller(email) {
+    const { listings } = await readDb();
+    return listings
+      .filter((listing) => listing.sellerEmail.toLowerCase() === email)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
   createListing(input) {
     return mutate((db) => {
-      const listing: Listing = { ...input, ...stamp() };
+      const listing: Listing = { ...input, ...stamp(), status: "available" };
       db.listings.push(listing);
       return listing;
     });
@@ -119,5 +136,24 @@ export const localStore: Store = {
     await fs.mkdir(UPLOAD_DIR, { recursive: true });
     await fs.writeFile(path.join(UPLOAD_DIR, name), Buffer.from(await file.arrayBuffer()));
     return `/api/uploads/${name}`;
+  },
+
+  // Payments are only implemented for Supabase. Locally no seller is ever
+  // onboarded, so nothing shows a Buy Now button.
+  async getSeller() {
+    return undefined;
+  },
+  async getSellerByAccount() {
+    return undefined;
+  },
+  async saveSeller() {
+    paymentsNeedSupabase();
+  },
+  async updateSellerStatus() {},
+  async recordOrder() {
+    paymentsNeedSupabase();
+  },
+  async getOrderBySession() {
+    return undefined;
   },
 };

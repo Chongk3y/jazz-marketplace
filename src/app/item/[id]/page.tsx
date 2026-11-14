@@ -5,14 +5,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MessageSellerForm } from "@/components/marketplace/message-seller-form";
+import { PurchasePanel } from "@/components/marketplace/purchase-panel";
+import { SoldBadge } from "@/components/marketplace/sold-badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { formatPrice, isLocalImage, listedAgo, slugify } from "@/lib/data";
-import { getListing } from "@/lib/store";
+import { formatPrice, isLocalImage, listedAgo, normalizeEmail, slugify } from "@/lib/data";
+import { purchaseState } from "@/lib/payments";
+import { getListing, getSeller } from "@/lib/store";
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<{ created?: string; checkout?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -21,9 +24,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ListingPage({ params, searchParams }: Props) {
-  const [{ id }, { created }] = await Promise.all([params, searchParams]);
+  const [{ id }, { created, checkout }] = await Promise.all([params, searchParams]);
   const listing = await getListing(id);
   if (!listing) notFound();
+  const seller = await getSeller(normalizeEmail(listing.sellerEmail));
+  const purchase = purchaseState(listing, seller);
+  const sold = purchase.kind === "sold";
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-5 sm:py-6 md:px-6 lg:px-8">
@@ -41,7 +47,18 @@ export default async function ListingPage({ params, searchParams }: Props) {
           className="mt-4 flex items-center gap-2 rounded-lg border border-brand/20 bg-brand/8 px-4 py-3 text-sm"
         >
           <CheckCircle2 className="size-4.5 shrink-0 text-brand" />
-          Your listing is live. Buyers can now find it on the Marketplace.
+          <span>
+            Your listing is live. Buyers can now find it on the Marketplace.
+            {purchase.kind === "seller-not-connected" && (
+              <>
+                {" "}
+                <Link href="/seller" className="font-medium text-brand hover:underline">
+                  Connect with Stripe
+                </Link>{" "}
+                to let buyers pay online.
+              </>
+            )}
+          </span>
         </p>
       )}
 
@@ -55,8 +72,9 @@ export default async function ListingPage({ params, searchParams }: Props) {
               priority
               unoptimized={isLocalImage(listing.image)}
               sizes="(min-width: 1024px) 60vw, 100vw"
-              className="object-cover"
+              className={sold ? "object-cover opacity-60 grayscale" : "object-cover"}
             />
+            {sold && <SoldBadge className="top-4 left-4 px-4 py-1.5 text-base" />}
           </div>
         </Card>
 
@@ -88,6 +106,8 @@ export default async function ListingPage({ params, searchParams }: Props) {
               </li>
             </ul>
           </div>
+
+          <PurchasePanel listing={listing} state={purchase} canceled={checkout === "canceled"} />
 
           <Separator />
 

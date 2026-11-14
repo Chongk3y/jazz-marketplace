@@ -1,4 +1,4 @@
-import { Bell, Mail, Plus, User } from "lucide-react";
+import { Bell, Mail, Plus, User, Wallet } from "lucide-react";
 import Link from "next/link";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -39,9 +39,21 @@ export function SiteHeader() {
             Sell
           </Link>
           <Link
+            href="/seller"
+            aria-label="Get paid with Stripe"
+            title="Get paid with Stripe"
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), iconButton)}
+          >
+            <Wallet className="size-5" />
+          </Link>
+          <Link
             href="/messages"
             aria-label="Messages"
-            className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), iconButton)}
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon-lg" }),
+              iconButton,
+              "hidden sm:inline-flex"
+            )}
           >
             <Mail className="size-5" />
           </Link>
